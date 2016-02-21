@@ -1,66 +1,63 @@
 from sklearn.feature_selection import VarianceThreshold
+
+from sklearn.tree import DecisionTreeRegressor
+
+from sklearn.ensemble import BaggingRegressor
+from sklearn.ensemble import RandomForestRegressor
+
+from sklearn.metrics import mean_squared_error
+from sklearn.metrics import median_absolute_error
+from sklearn.metrics import r2_score
+
 import numpy as np
 
-# Split into control and not
-# For controls, find average outcome = baseline
-# For patients, calculate treatment effect (difference of y from baseline)
-# Find group of treated with -0.6<
-# Figure out how we found that group
-# Add back in control patients
 
-def discrete_p_estimator(column):
-    p = 0.0
-    q = 0.0
-    not_pq = 0.0
-    for item in column:
-        #print item
-        if item==0.0:
-            p+=1
-        elif item==1.0:
-            q+=1
-        else:
-            not_pq+=1
-    return (p/column.shape[0],q/column.shape[0], not_pq/column.shape[0])
+# How well did our estimator do? Could also use internal scoring function for estimators
+#   or compare to dummy. Things to try later.
+def estimator_metrics(true_values, estimates):
 
-def running_mean(x, N):
-    cumsum = np.cumsum(np.insert(x, 0, 0)) 
-    print cumsum
-    print (cumsum[N:] - cumsum[:-N]) / N
-    return (cumsum[N:] - cumsum[:-N]) / N 
+    print "---------------------------------------"
+    print "MSE: " 
+    print mean_squared_error(true_values, estimates)
+    print "MAE: " 
+    print median_absolute_error(true_values, estimates)
+    print "R-squared: " 
+    print r2_score(true_values, estimates)
+    print "---------------------------------------"
 
+    return None
 
 def main():
-
 
     labels = np.genfromtxt("Data/Training_Data.csv", dtype="S5", delimiter=",")
     training_data = np.genfromtxt("Data/Training_Data.csv", dtype=float, delimiter=",", skip_header=1)
     #testing_data = np.genfromtxt("Data/Data.csv", dtype=float, delimiter=",", skip_header=1)
 
+    # Slices for ease of indexing the master array. Don't want to create copies! To use,
+    #    just index with array[slice].
+
     s_null = slice(None,None,None)
     s_dset = slice(0,1,None)
     s_id = slice(1,2,None)
     s_trt = slice(2,3,None)
+    s_y = slice(3,4,None)
     s_disc = slice(4,24,None)
     s_cont = slice(24,44,None)
+    s_covariates = slice(4,44,None)
 
-    discrete = training_data[s_null,s_disc]
-    # continuous = data[s_null, s_cont]
-    # ids = data[s_null,s_id]
+    # Random forest regressor to estimate treatement outcomes based on training data.
+    #   X: Array of size (number subjects, covariates)
+    #   y: Array of size (number subjects, )
 
+    for i in range(50,500,50):
+        true_values = np.ravel(training_data[s_y])
+        regressor = RandomForestRegressor(n_estimators=i, min_samples_split=1)
+        regressor.fit(training_data[s_covariates].T, true_values)
+        estimates = regressor.predict(training_data[s_covariates].T)
+        #print estimates
 
-    running_mean([1,2,3,4,5,6,7,8,9,10], 10)
-    # print discrete
-    # print discrete.shape
-
-    # for column in discrete.T:
-    #     #print column.shape
-    #     print discrete_p_estimator(column)
-
-
-    # print labels
-    # print data.shape
-    # print data[:,4:24]
-    # print data[rows, columns[4,24]]
+        # Prints out MSE, MAE, and R-squared metrics to compare true to estimated data.
+        estimator_metrics(true_values, estimates)
 
 if __name__ == '__main__':
     main()
