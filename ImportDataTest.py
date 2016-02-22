@@ -1,4 +1,4 @@
-from sklearn.tree import DecisionTreeRegressor
+from sklearn.tree import DecisionTreeRegressor, export_graphviz
 
 #from sklearn.ensemble import BaggingRegressor
 from sklearn.ensemble import RandomForestRegressor
@@ -8,6 +8,8 @@ from sklearn.metrics import median_absolute_error
 from sklearn.metrics import r2_score
 
 import numpy as np
+
+from StringIO import StringIO
 
 
 # ----> DO WE USE TRUE VALUE AND TWIN ESTIMATE OR BOTH ESTIMATES FOR Z?
@@ -85,20 +87,64 @@ def z_scores(trt, estimates_true, estimates_inverted):
 
     return z_scores
 
-def decision_tree_regressor(X, y):
+# How to parse: http://scikit-learn.org/dev/auto_examples/tree/unveil_tree_structure.html
 
-    regressor = DecisionTreeRegressor(max_depth=2)
+def decision_tree_regressor(X, y, labels):
+
+    regressor = DecisionTreeRegressor(max_depth=3)
     regressor.fit(X, y)
 
     estimates_z = regressor.predict(X)
+    leaves = regressor.apply(X)
 
+    leaves_hash = np.zeros(np.max(leaves)+1)
+    for i in range(len(y)):
+        if ((estimates_z[i]-y[i])>0.05 and estimates_z[i]>0.6 and y[i]>0):
+            # print estimates_z[i]
+            # print y[i]
+            # print estimates_z[i]-y[i]
+            # print ((estimates_z[i]-y[i])>0.1 and estimates_z[i]>0 and y[i]>0)
+            # print leaves[i]
+            leaves_hash[leaves[i]] += 1
+            # print leaves_hash[leaves[i]]
+        else:
+            leaves_hash[-1] += 1
+
+    #print regressor.tree_.decision_path(X)
+    print regressor.tree_.feature
+    print regressor.tree_.threshold
+    print leaves_hash
+    print regressor.feature_importances_
+
+    visualize_tree(regressor.tree_, labels)
     return estimates_z
+
+def visualize_tree(tree, feature_names):
+    """Create tree png using graphviz.
+
+    Args
+    ----
+    tree -- scikit-learn DecsisionTree.
+    feature_names -- list of feature names.
+    """
+    with open("dt.dot", 'w') as f:
+        export_graphviz(tree, out_file=f,
+                        feature_names=feature_names)
+
+    command = ["dot", "-Tpng", "dt.dot", "-o", "dt.png"]
+    try:
+        subprocess.check_call(command)
+    except:
+        exit("Could not run dot, ie graphviz, to "
+             "produce visualization")
 
 def rule_extractor():
 
     return
 
 def main():
+
+    np.set_printoptions(precision=3, suppress=True)
 
     labels = np.genfromtxt("Data/Training_Data.csv", dtype="S5", delimiter=",")
     data = np.genfromtxt("Data/Training_Data.csv", dtype=float, delimiter=",", skip_header=1)
@@ -137,6 +183,7 @@ def main():
     estimator_metrics(y, estimates_true)
 
     z = z_scores(data[s_trt], estimates_true, estimates_inverted)
+    #print z
     # print np.mean(z)
     # print np.median(z)
     # print np.std(z)
@@ -145,7 +192,7 @@ def main():
     for i in range(n_datasets):
         ds_slice = slice(240*i,240*(i+1),None)
         estimates_z = decision_tree_regressor(data[ds_slice, s_covariates[1]], 
-                                z[ds_slice])
+                                z[ds_slice], labels[s_covariates])
 
 
     # percent_good_z = np.empty(n)
