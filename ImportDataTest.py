@@ -1,4 +1,4 @@
-#from sklearn.tree import DecisionTreeRegressor
+from sklearn.tree import DecisionTreeRegressor
 
 #from sklearn.ensemble import BaggingRegressor
 from sklearn.ensemble import RandomForestRegressor
@@ -18,6 +18,7 @@ import numpy as np
 # 3) Bagging with different regressors.
 # 4) Messing with parameters.
 # 5) Cross-fold validation.
+# 6) F-test?
 
 
 '''How well did our estimator do? Could also use internal scoring function for estimators
@@ -84,6 +85,18 @@ def z_scores(trt, estimates_true, estimates_inverted):
 
     return z_scores
 
+def decision_tree_regressor(X, y):
+
+    regressor = DecisionTreeRegressor(max_depth=2)
+    regressor.fit(X, y)
+
+    estimates_z = regressor.predict(X)
+
+    return estimates_z
+
+def rule_extractor():
+
+    return
 
 def main():
 
@@ -116,22 +129,35 @@ def main():
     regressor = RandomForestRegressor(n_estimators=50, min_samples_split=1)
     regressor.fit(X, y)
 
-    # Predicting value of our target (y), with true data, and inverted treatment groups
+    # Predicting value of our target (y, outcome), with true data, and inverted treatment groups
     estimates_true = regressor.predict(X)
     estimates_inverted = regressor.predict(np.c_[invert(data[s_trt]), data[s_covariates]])
 
     # Prints out MSE, MAE, and R-squared metrics to compare true to estimated data
     estimator_metrics(y, estimates_true)
 
-
     z = z_scores(data[s_trt], estimates_true, estimates_inverted)
-    print np.mean(z)
-    print np.median(z)
-    print np.std(z)
+    # print np.mean(z)
+    # print np.median(z)
+    # print np.std(z)
 
-    z_threshold = np.mean(z)
+    n_datasets = (data.shape[0] / 240)
+    for i in range(n_datasets):
+        ds_slice = slice(240*i,240*(i+1),None)
+        estimates_z = decision_tree_regressor(data[ds_slice, s_covariates[1]], 
+                                z[ds_slice])
 
-    
+
+    # percent_good_z = np.empty(n)
+    # for i in range(n):
+    #     if z[i] > 0.6:
+    #         percent_good_z[i] = 1
+    #     else:
+    #         percent_good_z[i] = 0
+
+    # print np.mean(percent_good_z)
+
+
 
 if __name__ == '__main__':
     main()
