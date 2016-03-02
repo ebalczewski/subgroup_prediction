@@ -16,11 +16,13 @@ data <- read.csv("Data/Data.csv")
 max_datasets <- max(data$dataset)
 # for now, make simple
 
-subgrp1 <- data.frame(matrix("", 240, max_datasets+ 1))
-names(subgrp1) <- c("id", paste("dataset", 1:1200, sep="_") )
-subgrp1$id <- 1:240
+subgroups_base <- data.frame(matrix("", 240, max_datasets+ 1))
+names(subgroups_base) <- c("id", paste("dataset", 1:1200, sep="_") )
+subgroups_base$id <- 1:240
 
-diff_counter <- 0
+subgroups_fancy <- subgroups_base
+
+two_rules <- 0
 
 for (i in 1:max_datasets) {
   dataset <- data[data$dataset == i,]
@@ -48,23 +50,29 @@ for (i in 1:max_datasets) {
   rpart_test$z <- z
   fit <- rpart(z ~., data = rpart_test, maxdepth = 1)
   
-  subgrp1[,paste("dataset", i, sep="_")] <- ifelse(fit$where == 2, 1, 0)
+  subgroups_base[,paste("dataset", i, sep="_")] <- ifelse(fit$where == 2, 1, 0)
+  subgroups_fancy[,paste("dataset", i, sep="_")] <- ifelse(fit$where == 2, 1, 0)
   diff <- mean(dataset$y[fit$where == 2 & dataset$trt == 1]) - mean(dataset$y[fit$where == 2 & dataset$trt == 0])
   
   if (diff > -.6) {
-    # try with two rules
+    # try with two rules for subgroups_fancy
+    two_rules <- two_rules + 1
     fit <- rpart(z ~., data = rpart_test, maxdepth = 2)
     
     sbgrp <- fit$where == 4
-    subgrp1[,paste("dataset", i, sep="_")] <- ifelse(sbgrp, 1, 0)
+    subgroups_base[,paste("dataset", i, sep="_")] <- 0
+    subgroups_fancy[,paste("dataset", i, sep="_")] <- ifelse(sbgrp, 1, 0)
     diff <- mean(dataset$y[sbgrp & dataset$trt == 1]) - mean(dataset$y[(!sbgrp) & dataset$trt == 0])
     
     if (diff > -.6) {
         # no easy rule to find, I guess!
-        subgrp1[,paste("dataset", i, sep="_")] <- 0
+        two_rules <- two_rules - 1
+        subgroups_base[,paste("dataset", i, sep="_")] <- 0
+        subgroups_fancy[,paste("dataset", i, sep="_")] <- 0
     }
   }
   
 }
 
-write.csv(subgrp1, "Data/subgrp1.csv", row.names=F)
+write.csv(subgroups_base, "Data/subgroups_base.csv", row.names=F)
+write.csv(subgroups_fancy, "Data/subgroups_fancy.csv", row.names=F)
